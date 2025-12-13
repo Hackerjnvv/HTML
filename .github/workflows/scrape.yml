@@ -1,37 +1,48 @@
-name: Daily Birthday Scraper
+name: Daily Birthday Scraper and Formatter
 
 on:
   schedule:
+    # Ye script har roz raat 3:00 AM (IST) par chalega.
+    # 21:30 UTC = 3:00 AM IST
     - cron: '30 21 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  scrape-and-save:
+  scrape-and-format:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
     steps:
+      # Step 1: Repository ka code download karna
       - name: Check out repository
         uses: actions/checkout@v3
 
+      # Step 2: Python environment set up karna
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      # Step 3: Dono scripts ke liye saari zaroori libraries install karna
+      - name: Install all dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4
+          pip install requests beautifulsoup4 openpyxl lxml
 
-      - name: Run the scraper script
+      # Step 4: Pehla script (scraper) run karna
+      - name: Run the scraper script (scraper.py)
         run: python scraper.py
 
+      # Step 5: Doosra script (formatter) run karna
+      - name: Run the formatter script (formattor.py)
+        run: python formattor.py
+
+      # Step 6: Check karna ki koi nayi file bani hai ya nahi, aur agar bani hai to use commit karna
       - name: Commit and push if changes were made
         run: |
           git config --global user.name 'GitHub Actions Bot'
           git config --global user.email 'actions-bot@github.com'
-          git add BD/ last_hash.txt
-          git diff --staged --quiet || (git commit -m "Automated scrape: Update birthday list for $(date -u +'%Y-%m-%d')" && git push)
+          # Ab hum HTML, hash file, aur Excel file, sabko add karenge
+          git add BD/ last_hash.txt "Birthday Data Master.xlsx"
+          git diff --staged --quiet || (git commit -m "Automated data scrape and format for $(date -u +'%Y-%m-%d')" && git push)
