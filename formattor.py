@@ -38,7 +38,11 @@ def extract_data_from_html(html_content):
                 if len(lines) >= 4:  # Section
                     section = lines[3].split(':')[-1].strip()
 
-            data.append([date, student_name, father_name, mother_name, class_info, section])
+            # Ensure all values are strings for consistent processing
+            data.append([
+                str(date), str(student_name), str(father_name),
+                str(mother_name), str(class_info), str(section)
+            ])
 
         except Exception as e:
             print(f"Error parsing card: {e}")
@@ -52,19 +56,16 @@ def parse_day_month(date_str):
         day = int(day.strip())
         month = MONTHS.get(month_abbr.strip(), 0)
         return (month, day)
-    except ValueError:
-        return (0, 0)
+    except (ValueError, AttributeError):
+        return (0, 0) # Return a default tuple if parsing fails
 
 def save_to_excel(data, file_path):
-    """Saves the extracted data to an Excel file."""
+    """Saves the extracted data to an Excel file, avoiding duplicates."""
     try:
         # Create or load the workbook
         try:
             wb = openpyxl.load_workbook(file_path)
             sheet = wb.active
-            # Check if headers exist
-            if sheet.max_row == 0:
-                sheet.append(["Date", "Student Name", "Father's Name", "Mother's Name", "Class", "Section"])
         except FileNotFoundError:
             wb = openpyxl.Workbook()
             sheet = wb.active
@@ -74,7 +75,8 @@ def save_to_excel(data, file_path):
         # Add new data (skip duplicates)
         existing_entries = set()
         for row in sheet.iter_rows(min_row=2, values_only=True):
-            existing_entries.add(tuple(row))
+            # Convert all read values to string to match extracted data type
+            existing_entries.add(tuple(str(cell) if cell is not None else '' for cell in row))
         
         new_entries_added = 0
         for entry in data:
@@ -88,7 +90,7 @@ def save_to_excel(data, file_path):
             column_letter = get_column_letter(column[0].column)
             for cell in column:
                 try:
-                    if len(str(cell.value)) > max_length:
+                    if cell.value and len(str(cell.value)) > max_length:
                         max_length = len(str(cell.value))
                 except:
                     pass
@@ -97,36 +99,93 @@ def save_to_excel(data, file_path):
         
         # Save the workbook
         wb.save(file_path)
-        print(f"Successfully saved {new_entries_added} new entries to {file_path}")
+        print(f"Successfully saved {new_entries_added} new entries to Excel: {file_path}")
         return True
     
     except Exception as e:
         print(f"Error saving to Excel: {e}")
         return False
 
+def save_to_markdown(data, file_path):
+    """Saves the extracted data to a Markdown file as a table, avoiding duplicates."""
+    try:
+        # Ensure the directory exists
+        output_dir = os.path.dirname(file_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+
+        # Read existing entries to avoid duplicates
+        existing_entries = set()
+        is_new_file = not os.path.exists(file_path)
+
+        if not is_new_file:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f.readlines()[2:]: # Skip header and separator
+                    if not line.strip().startswith('|'):
+                        continue
+                    # Parse table row: | Val1 | Val2 | -> ['',' Val1 ',' Val2 ','']
+                    parts = [p.strip() for p in line.strip().split('|') if p.strip()]
+                    if len(parts) == 6:
+                        existing_entries.add(tuple(parts))
+        
+        # Open file in append mode
+        with open(file_path, 'a', encoding='utf-8') as f:
+            # Write header if it's a new file
+            if is_new_file:
+                headers = ["Date", "Student Name", "Father's Name", "Mother's Name", "Class", "Section"]
+                f.write('| ' + ' | '.join(headers) + ' |\n')
+                f.write('|' + '---|' * len(headers) + '\n')
+            
+            new_entries_added = 0
+            for entry in data:
+                entry_tuple = tuple(entry)
+                if entry_tuple not in existing_entries:
+                    # Format entry as a markdown table row
+                    md_row = '| ' + ' | '.join(entry_tuple) + ' |\n'
+                    f.write(md_row)
+                    new_entries_added += 1
+
+        print(f"Successfully saved {new_entries_added} new entries to Markdown: {file_path}")
+        return True
+
+    except Exception as e:
+        print(f"Error saving to Markdown: {e}")
+        return False
+
 def process_html_files(directory):
-    """Processes HTML files and saves data to Excel."""
+    """Processes HTML files and saves data to Excel and Markdown."""
     all_data = []
     for root, _, files in os.walk(directory):
         for file in files:
             if file.lower().endswith('.html'):
                 file_path = os.path.join(root, file)
                 print(f"Processing: {file_path}")
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    all_data.extend(extract_data_from_html(f.read()))
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        all_data.extend(extract_data_from_html(f.read()))
+                except Exception as e:
+                    print(f"Could not read file {file_path}: {e}")
 
     # Remove duplicates and sort by date
-    unique_sorted_data = sorted(set(tuple(row) for row in all_data), key=lambda x: parse_day_month(x[0]))
-    
-    # Convert to list of lists (from tuples)
-    processed_data = [list(item) for item in unique_sorted_data]
+    # Convert each inner list to a tuple for the set, then back to a list
+    unique_data = set(tuple(row) for row in all_data)
+    unique_sorted_data = sorted(list(unique_data), key=lambda x: parse_day_month(x[0]))
     
     # Save to Excel file
     excel_path = "Birthday Data Master.xlsx"
-    save_to_excel(processed_data, excel_path)
+    save_to_excel(unique_sorted_data, excel_path)
+    
+    # Save to Markdown file in the 'html' directory
+    markdown_path = os.path.join("html", "Birthday Data Master.md")
+    save_to_markdown(unique_sorted_data, markdown_path)
 
-# Configuration
-HTML_DIRECTORY = 'BD'  # Directory containing HTML files
+# --- Configuration & Execution ---
+# Directory containing HTML files
+HTML_DIRECTORY = 'BD'
 
 # Run the process
-process_html_files(HTML_DIRECTORY)
+if __name__ == "__main__":
+    if not os.path.isdir(HTML_DIRECTORY):
+        print(f"Error: Directory '{HTML_DIRECTORY}' not found. Please create it and place your HTML files inside.")
+    else:
+        process_html_files(HTML_DIRECTORY)
