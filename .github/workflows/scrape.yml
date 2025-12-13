@@ -2,17 +2,15 @@ name: Daily Birthday Scraper
 
 on:
   schedule:
-    - cron: '10 1 * * *'
+    - cron: '30 21 * * *'
   workflow_dispatch:
 
 jobs:
   scrape-and-save:
     runs-on: ubuntu-latest
 
-    # <<<--- YEH SECTION ADD KARNA HAI --->>>
     permissions:
       contents: write
-    # <<<--- BAS ITNA HI KARNA HAI --->>>
 
     steps:
       - name: Check out repository
