@@ -1,0 +1,26 @@
+# Python virtual environment
+# Agar aap local testing ke liye virtual environment banate hain (e.g., venv, .venv, env)
+/venv
+/.venv
+/env
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# IDE/Editor specific files
+.vscode/
+.idea/
+*.sublime-*
+
+# OS generated files
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
+
+# Environment variables file (agar aap secrets local file me rakhte hain)
+.env
+
+# Log files
+*.log
