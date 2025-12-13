@@ -1,0 +1,42 @@
+name: Daily Birthday Scraper
+
+on:
+  schedule:
+    # Ye script har din subah 6:30 baje (IST) chalegi.
+    # Cron time UTC mein hota hai, '1 1 * * *' ka matlab hai 01:00 UTC.
+    # 01:00 UTC = 6:30 AM IST
+    - cron: '10 1 * * *'
+  workflow_dispatch: # Isse aap GitHub par "Run workflow" button se manually bhi chala sakte hain
+
+jobs:
+  scrape-and-save:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Repository ka code download karna
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      # Step 2: Python environment set up karna
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # Step 3: Script ke liye zaroori libraries install karna
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+
+      # Step 4: Aapka Python script run karna
+      - name: Run the scraper script
+        run: python scraper.py
+
+      # Step 5: Check karna ki koi nayi file (HTML ya hash file) bani hai ya nahi, aur agar bani hai to use repository mein commit karna
+      - name: Commit and push if changes were made
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions-bot@github.com'
+          git add BD/ last_hash.txt  # Sirf BD folder aur hash file ko add karein
+          # Niche wali line check karegi ki kya koi change hua hai, agar haan, tabhi commit karegi
+          git diff --staged --quiet || (git commit -m "Automated scrape: Update birthday list for $(date -u +'%Y-%m-%d')" && git push)
