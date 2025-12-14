@@ -2,9 +2,9 @@ name: Daily Birthday Scraper and Formatter
 
 on:
   schedule:
-    # Ye script har roz raat 3:00 AM (IST) par chalega.
-    # 21:30 UTC = 3:00 AM IST
-    - cron: '30 21 * * *'
+    # Ye script har roz subah 11:00 AM (IST) par chalega.
+    # 05:30 UTC = 11:00 AM IST
+    - cron: '30 5 * * *'
   workflow_dispatch:
 
 permissions:
@@ -43,6 +43,7 @@ jobs:
         run: |
           git config --global user.name 'GitHub Actions Bot'
           git config --global user.email 'actions-bot@github.com'
-          # Ab hum HTML, hash file, aur Excel file, sabko add karenge
           git add BD/ last_hash.txt "Birthday Data Master.xlsx"
-          git diff --staged --quiet || (git commit -m "Automated data scrape and format for $(date -u +'%Y-%m-%d')" && git push)
+          # Date ko IST mein commit karne ke liye TZ='Asia/Kolkata' istemal karenge
+          # Is time par date same hi hogi, but ye tarika best practice hai.
+          git diff --staged --quiet || (git commit -m "Automated data scrape and format for $(TZ='Asia/Kolkata' date +'%Y-%m-%d')" && git push)
